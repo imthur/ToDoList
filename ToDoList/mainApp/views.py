@@ -20,3 +20,7 @@ class CreateToDo(generics.CreateAPIView): # Create
 class DeleteToDo(generics.DestroyAPIView): # Delete
     queryset = ToDo.objects.all()
     serializer_class = ToDoSerializer
+    
+def todo_frontend(request):
+    return render(request, 'index.html')
+

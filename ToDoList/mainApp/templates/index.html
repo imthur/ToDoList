@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Tarefas</title>
+    <!-- Importando Tailwind CSS para estilização rápida e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importando Font Awesome para ícones bonitos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Cabeçalho da aplicação -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-center text-gray-800 mb-4">Gestor de Tarefas</h1>
+            <p class="text-center text-gray-600 mb-6">Organize suas atividades com eficiência</p>
+        </header>
+
+        <!-- Seção para adicionar nova tarefa -->
+        <div class="bg-white shadow-lg rounded-xl p-6 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Adicionar Nova Tarefa</h2>
+            
+            <!-- Campos de entrada em grid responsivo -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Campo de título da tarefa -->
+                <input 
+                    type="text" 
+                    id="title" 
+                    placeholder="Título da Tarefa" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                >
+                <!-- Campo de data da tarefa -->
+                <input 
+                    type="date" 
+                    id="date" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                >
+            </div>
+
+            <!-- Área de descrição da tarefa -->
+            <textarea 
+                id="description" 
+                placeholder="Descrição da Tarefa" 
+                class="w-full px-4 py-2 mt-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="3"
+            ></textarea>
+
+            <!-- Opções de conclusão e botão de adicionar -->
+            <div class="flex items-center mt-4">
+                <!-- Checkbox para marcar tarefa como concluída -->
+                <input 
+                    type="checkbox" 
+                    id="completed" 
+                    class="mr-2 text-blue-600 focus:ring-blue-500"
+                >
+                <label for="completed" class="text-gray-700">Tarefa Concluída</label>
+                
+                <!-- Botão para adicionar tarefa -->
+                <button 
+                    onclick="addTodo()" 
+                    class="ml-auto bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition duration-300 flex items-center"
+                >
+                    <i class="fas fa-plus mr-2"></i>
+                    Adicionar Tarefa
+                </button>
+            </div>
+        </div>
+
+        <!-- Container para listar tarefas -->
+        <div id="todos" class="space-y-4">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Minhas Tarefas</h2>
+            <!-- As tarefas serão carregadas dinamicamente aqui -->
+        </div>
+    </div>
+
+    <script>
+        // URL base para as chamadas de API (substitua pelo seu endpoint real)
+        const API_URL = '/api';
+        
+        // Carrega as tarefas quando a página é carregada
+        window.onload = loadTodos;
+        
+        // Função para buscar todas as tarefas da API
+        async function loadTodos() {
+            try {
+                // Faz uma requisição GET para buscar todas as tarefas
+                const response = await fetch(`${API_URL}/`);
+                const todos = await response.json();
+                // Chama a função para exibir as tarefas
+                displayTodos(todos);
+            } catch (error) {
+                console.error('Erro ao carregar tarefas:', error);
+                alert('Não foi possível carregar as tarefas.');
+            }
+        }
+        
+        // Função para renderizar as tarefas na tela
+        function displayTodos(todos) {
+            const container = document.getElementById('todos');
+            // Limpa o container antes de adicionar as tarefas
+            container.innerHTML = '';
+            
+            // Percorre cada tarefa e cria um elemento visual
+            todos.forEach(todo => {
+                const div = document.createElement('div');
+                div.className = `bg-white shadow-md rounded-lg p-4 flex items-center justify-between ${todo.Completed ? 'opacity-60' : ''}`;
+                
+                // Cria o HTML para cada tarefa
+                div.innerHTML = `
+                    <div>
+                        <h3 class="text-lg font-bold ${todo.Completed ? 'line-through text-gray-500' : 'text-gray-800'}">${todo.Title}</h3>
+                        <p class="text-gray-600 text-sm mt-1">${todo.Description || ''}</p>
+                        <div class="text-sm text-gray-500 mt-2">
+                            <i class="fas fa-calendar mr-2"></i>${todo.Date} 
+                            <span class="ml-4 ${todo.Completed ? 'text-green-600' : 'text-yellow-600'}">
+                                <i class="fas ${todo.Completed ? 'fa-check-circle' : 'fa-clock'}"></i>
+                                ${todo.Completed ? 'Concluída' : 'Pendente'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button 
+                            onclick="toggleTodo(${todo.id}, ${!todo.Completed})" 
+                            class="text-sm ${todo.Completed ? 'bg-yellow-500' : 'bg-green-500'} text-white px-3 py-1 rounded hover:opacity-80 transition"
+                        >
+                            <i class="fas ${todo.Completed ? 'fa-undo' : 'fa-check'} mr-1"></i>
+                            ${todo.Completed ? 'Reabrir' : 'Concluir'}
+                        </button>
+                        <button 
+                            onclick="deleteTodo(${todo.id})" 
+                            class="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+                        >
+                            <i class="fas fa-trash mr-1"></i>Excluir
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            // Mensagem para quando não há tarefas
+            if (todos.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-clipboard-list text-6xl mb-4 text-gray-300"></i>
+                        <p>Nenhuma tarefa encontrada. Adicione sua primeira tarefa!</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Função para adicionar uma nova tarefa
+        async function addTodo() {
+            // Captura os elementos de input
+            const title = document.getElementById('title');
+            const description = document.getElementById('description');
+            const date = document.getElementById('date');
+            const completed = document.getElementById('completed');
+
+            // Validação básica dos campos
+            if (!title.value || !date.value) {
+                alert('Por favor, preencha o título e a data.');
+                return;
+            }
+
+            // Cria um objeto com os dados da tarefa
+            const todo = {
+                Title: title.value,
+                Description: description.value,
+                Date: date.value,
+                Completed: completed.checked
+            };
+            
+            try {
+                // Envia a nova tarefa para a API
+                await fetch(`${API_URL}/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(todo)
+                });
+                
+                // Limpa os campos após adicionar
+                title.value = '';
+                description.value = '';
+                date.value = '';
+                completed.checked = false;
+                
+                // Recarrega a lista de tarefas
+                loadTodos();
+            } catch (error) {
+                console.error('Erro ao adicionar tarefa:', error);
+                alert('Não foi possível adicionar a tarefa.');
+            }
+        }
+        
+        // Função para alternar o status de conclusão de uma tarefa
+        async function toggleTodo(id, completed) {
+            try {
+                // Atualiza o status da tarefa na API
+                await fetch(`${API_URL}/${id}/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Completed: completed })
+                });
+                // Recarrega a lista de tarefas
+                loadTodos();
+            } catch (error) {
+                console.error('Erro ao alterar status da tarefa:', error);
+                alert('Não foi possível alterar o status da tarefa.');
+            }
+        }
+        
+        // Função para excluir uma tarefa
+        async function deleteTodo(id) {
+            // Confirmação antes de excluir
+            if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                try {
+                    // Remove a tarefa via API
+                    await fetch(`${API_URL}/delete/${id}`, { method: 'DELETE' });
+                    // Recarrega a lista de tarefas
+                    loadTodos();
+                } catch (error) {
+                    console.error('Erro ao excluir tarefa:', error);
+                    alert('Não foi possível excluir a tarefa.');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
