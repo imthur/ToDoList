@@ -50,7 +50,7 @@ A aplicação oferece os seguintes endpoints para interação via API:
          "Title": "Título da Tarefa",
          "Description": "Descrição opcional",
          "Date": "AAAA-MM-DD",
-         "Completed": Booleano
+         "Completed": False
      }
      ```
 
