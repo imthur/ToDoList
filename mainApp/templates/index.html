@@ -58,15 +58,37 @@
                 >
                 <label for="completed" class="text-gray-700">Tarefa Concluída</label>
                 
-                <!-- Botão para adicionar tarefa -->
+                <!-- Botão para adicionar/editar tarefa -->
                 <button 
+                    id="saveButton"
                     onclick="addTodo()" 
                     class="ml-auto bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition duration-300 flex items-center"
                 >
                     <i class="fas fa-plus mr-2"></i>
                     Adicionar Tarefa
                 </button>
+                
+                <!-- Botão para cancelar edição (inicialmente oculto) -->
+                <button 
+                    id="cancelButton"
+                    onclick="cancelEdit()" 
+                    class="ml-2 bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600 transition duration-300 hidden"
+                >
+                    <i class="fas fa-times mr-2"></i>
+                    Cancelar
+                </button>
             </div>
+        </div>
+        
+        <!-- Botão para limpar tarefas concluídas -->
+        <div class="mb-6 flex justify-end">
+            <button 
+                onclick="clearCompletedTasks()" 
+                class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition duration-300 flex items-center"
+            >
+                <i class="fas fa-trash-alt mr-2"></i>
+                Excluir Todas Concluídas
+            </button>
         </div>
 
         <!-- Container para listar tarefas -->
@@ -74,11 +96,38 @@
             <h2 class="text-2xl font-semibold text-gray-700 mb-4">Minhas Tarefas</h2>
             <!-- As tarefas serão carregadas dinamicamente aqui -->
         </div>
+        
+        <!-- Modal de confirmação de edição (inicialmente oculto) -->
+        <div id="editConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                <h3 class="text-xl font-bold mb-4">Confirmar Alterações</h3>
+                <p class="mb-6">Tem certeza que deseja salvar as alterações nesta tarefa?</p>
+                <div class="flex justify-end space-x-3">
+                    <button 
+                        onclick="closeEditConfirmModal()" 
+                        class="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400 transition"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onclick="confirmEdit()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    >
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         // URL base para as chamadas de API
         const API_URL = '/api';
+        
+        // Variáveis para controlar o modo de edição
+        let isEditMode = false;
+        let currentEditId = null;
+        let originalTodoData = null;
         
         // Carrega as tarefas quando a página é carregada
         window.onload = loadTodos;
@@ -101,7 +150,7 @@
         function displayTodos(todos) {
             const container = document.getElementById('todos');
             // Limpa o container antes de adicionar as tarefas
-            container.innerHTML = '';
+            container.innerHTML = '<h2 class="text-2xl font-semibold text-gray-700 mb-4">Minhas Tarefas</h2>';
             
             // Percorre cada tarefa e cria um elemento visual
             todos.forEach(todo => {
@@ -123,6 +172,12 @@
                     </div>
                     <div class="flex space-x-2">
                         <button 
+                            onclick="editTodo(${todo.id})" 
+                            class="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition"
+                        >
+                            <i class="fas fa-edit mr-1"></i>Editar
+                        </button>
+                        <button 
                             onclick="toggleTodo(${todo.id}, ${!todo.Completed})" 
                             class="text-sm ${todo.Completed ? 'bg-yellow-500' : 'bg-green-500'} text-white px-3 py-1 rounded hover:opacity-80 transition"
                         >
@@ -142,7 +197,7 @@
 
             // Mensagem para quando não há tarefas
             if (todos.length === 0) {
-                container.innerHTML = `
+                container.innerHTML += `
                     <div class="text-center text-gray-500 py-8">
                         <i class="fas fa-clipboard-list text-6xl mb-4 text-gray-300"></i>
                         <p>Nenhuma tarefa encontrada. Adicione sua primeira tarefa!</p>
@@ -151,7 +206,7 @@
             }
         }
         
-        // Função para adicionar uma nova tarefa
+        // Função para adicionar uma nova tarefa ou salvar uma tarefa editada
         async function addTodo() {
             // Captura os elementos de input
             const title = document.getElementById('title');
@@ -173,6 +228,15 @@
                 Completed: completed.checked
             };
             
+            // Se estiver em modo de edição, mostra modal de confirmação
+            if (isEditMode) {
+                // Armazena os dados para uso na confirmação
+                originalTodoData = todo;
+                // Exibe o modal de confirmação
+                showEditConfirmModal();
+                return;
+            }
+            
             try {
                 // Envia a nova tarefa para a API
                 await fetch(`${API_URL}/create`, {
@@ -182,10 +246,7 @@
                 });
                 
                 // Limpa os campos após adicionar
-                title.value = '';
-                description.value = '';
-                date.value = '';
-                completed.checked = false;
+                clearForm();
                 
                 // Recarrega a lista de tarefas
                 loadTodos();
@@ -193,6 +254,14 @@
                 console.error('Erro ao adicionar tarefa:', error);
                 alert('Não foi possível adicionar a tarefa.');
             }
+        }
+        
+        // Função para limpar o formulário
+        function clearForm() {
+            document.getElementById('title').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('date').value = '';
+            document.getElementById('completed').checked = false;
         }
         
         // Função para alternar o status de conclusão de uma tarefa
@@ -225,6 +294,142 @@
                     console.error('Erro ao excluir tarefa:', error);
                     alert('Não foi possível excluir a tarefa.');
                 }
+            }
+        }
+        
+        // Função para excluir todas as tarefas concluídas
+        async function clearCompletedTasks() {
+            if (confirm('Tem certeza que deseja excluir TODAS as tarefas concluídas?')) {
+                try {
+                    // Busca todas as tarefas
+                    const response = await fetch(`${API_URL}/`);
+                    const todos = await response.json();
+                    
+                    // Filtra apenas as tarefas concluídas
+                    const completedTodos = todos.filter(todo => todo.Completed);
+                    
+                    // Se não houver tarefas concluídas, exibe mensagem e retorna
+                    if (completedTodos.length === 0) {
+                        alert('Não há tarefas concluídas para excluir.');
+                        return;
+                    }
+                    
+                    // Para cada tarefa concluída, envia requisição DELETE
+                    const deletePromises = completedTodos.map(todo => 
+                        fetch(`${API_URL}/delete/${todo.id}`, { method: 'DELETE' })
+                    );
+                    
+                    // Aguarda todas as exclusões completarem
+                    await Promise.all(deletePromises);
+                    
+                    // Recarrega a lista de tarefas
+                    loadTodos();
+                    
+                    // Exibe mensagem de sucesso
+                    alert(`${completedTodos.length} tarefa(s) concluída(s) foram excluídas.`);
+                } catch (error) {
+                    console.error('Erro ao excluir tarefas concluídas:', error);
+                    alert('Não foi possível excluir as tarefas concluídas.');
+                }
+            }
+        }
+        
+        // Função para carregar os dados de uma tarefa para edição
+        async function editTodo(id) {
+            try {
+                // Busca os dados da tarefa específica
+                const response = await fetch(`${API_URL}/${id}/`);
+                const todo = await response.json();
+                
+                // Preenche o formulário com os dados da tarefa
+                document.getElementById('title').value = todo.Title;
+                document.getElementById('description').value = todo.Description || '';
+                document.getElementById('date').value = todo.Date;
+                document.getElementById('completed').checked = todo.Completed;
+                
+                // Altera o texto do botão para "Salvar Alterações"
+                const saveButton = document.getElementById('saveButton');
+                saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Alterações';
+                
+                // Exibe o botão de cancelar
+                document.getElementById('cancelButton').classList.remove('hidden');
+                
+                // Ativa o modo de edição e armazena o ID da tarefa
+                isEditMode = true;
+                currentEditId = id;
+                
+                // Rola até o topo para o usuário ver o formulário
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error) {
+                console.error('Erro ao carregar tarefa para edição:', error);
+                alert('Não foi possível carregar a tarefa para edição.');
+            }
+        }
+        
+        // Função para cancelar a edição
+        function cancelEdit() {
+            // Limpa o formulário
+            clearForm();
+            
+            // Restaura o texto do botão para "Adicionar Tarefa"
+            const saveButton = document.getElementById('saveButton');
+            saveButton.innerHTML = '<i class="fas fa-plus mr-2"></i>Adicionar Tarefa';
+            
+            // Oculta o botão de cancelar
+            document.getElementById('cancelButton').classList.add('hidden');
+            
+            // Desativa o modo de edição
+            isEditMode = false;
+            currentEditId = null;
+        }
+        
+        // Função para exibir o modal de confirmação de edição
+        function showEditConfirmModal() {
+            document.getElementById('editConfirmModal').classList.remove('hidden');
+        }
+        
+        // Função para fechar o modal de confirmação de edição
+        function closeEditConfirmModal() {
+            document.getElementById('editConfirmModal').classList.add('hidden');
+        }
+        
+        // Função para confirmar a edição após mostrar o modal
+        async function confirmEdit() {
+            try {
+                // Envia a tarefa atualizada para a API
+                await fetch(`${API_URL}/${currentEditId}/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(originalTodoData)
+                });
+                
+                // Fecha o modal de confirmação
+                closeEditConfirmModal();
+                
+                // Limpa o formulário e restaura o estado original
+                clearForm();
+                
+                // Restaura o texto do botão para "Adicionar Tarefa"
+                const saveButton = document.getElementById('saveButton');
+                saveButton.innerHTML = '<i class="fas fa-plus mr-2"></i>Adicionar Tarefa';
+                
+                // Oculta o botão de cancelar
+                document.getElementById('cancelButton').classList.add('hidden');
+                
+                // Desativa o modo de edição
+                isEditMode = false;
+                currentEditId = null;
+                originalTodoData = null;
+                
+                // Recarrega a lista de tarefas
+                loadTodos();
+                
+                // Exibe mensagem de sucesso
+                alert('Tarefa atualizada com sucesso!');
+            } catch (error) {
+                console.error('Erro ao atualizar tarefa:', error);
+                alert('Não foi possível atualizar a tarefa.');
+                closeEditConfirmModal();
             }
         }
     </script>
